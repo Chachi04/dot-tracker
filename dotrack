@@ -1,0 +1,82 @@
+#!/bin/zsh
+
+CONFIG=~/.config/dotrack.yaml
+eval $(niet -f eval ".files" "$CONFIG")
+eval $(niet -f eval ".repo" "$CONFIG")
+
+DOT_FILES=($_files)
+DOT_REPO=$_repo
+
+
+alias git="/bin/git --git-dir=$DOT_REPO --work-tree=$HOME "
+
+stage_dot_files() {
+    for track_path in $DOT_FILES; do
+        for file in $track_path; do
+            git add $file
+        done
+    done
+}
+
+list_dot_files() {
+    for file in $DOT_FILES; do
+        echo $file
+    done
+}
+
+spawn_lazy_git() {
+    lazygit -g dotconfig -w /home/chachi
+}
+
+add_file() {
+    file=$(echo `readlink -f "$1"` | sed "s/\\//\\\\\//g")
+    if [[ -z `cat $CONFIG | grep $file` ]]; then
+        $(sed -i "s/files:/files:\n  - $file/" "$CONFIG")
+        echo "added $1 to tracked files"
+    else
+        echo "file already tracked"
+    fi
+}
+
+remove_file() {
+    file=$(echo `readlink -f $1` | sed "s/\\//\\\\\//g")
+    if [[ -n `cat $CONFIG | grep $file` ]]; then
+        $(sed -i "/  - $file/d" "$CONFIG")
+        echo "removed $1 from tracked files"
+    else
+        echo "file not tracked"
+    fi
+}
+
+if [[ -z "$1" ]]; then
+    stage_dot_files
+else
+    case $1 in
+        --help | help | h)
+            print_help
+            ;;
+        list | ls | l)
+            list_dot_files
+            ;;
+        lg | git)
+            spawn_lazy_git
+            ;;
+        add | track)
+            if [[ -z $2 ]]; then
+                echo "file expected"
+            else
+                add_file $2
+            fi
+            ;;
+        remove | rm)
+            if [[ -z $2 ]]; then
+                echo "file expected"
+            else
+                remove_file $2
+            fi
+            ;;
+        *)
+            git $@
+            ;;
+    esac
+fi
